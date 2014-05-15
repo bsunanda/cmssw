@@ -31,3 +31,6 @@ from Geometry.EcalMapping.EcalMapping_cfi import *
 from Geometry.EcalMapping.EcalMappingRecord_cfi import *
 from Geometry.HcalCommonData.hcalRecNumberingInitialization_cfi import *
 
+from Geometry.HGCalCommonData.shashlikNumberingInitialization_cfi import *
+from Geometry.CaloEventSetup.ShashlikTopology_cfi import *
+from Geometry.CaloTopology.ShashlikGeometryESProducer_cfi import *
