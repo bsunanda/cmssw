@@ -26,7 +26,7 @@
 #include <fstream>
 #include <iomanip>
 
-#define DebugLog
+//#define DebugLog
 
 HGCSD::HGCSD(G4String name, const DDCompactView & cpv,
 	     SensitiveDetectorCatalog & clg, 
@@ -80,9 +80,9 @@ bool HGCSD::ProcessHits(G4Step * aStep, G4TouchableHistory * ) {
   if (aStep == NULL) {
     return true;
   } else {
+#ifdef DebugLog
     G4int parCode = aStep->GetTrack()->GetDefinition()->GetPDGEncoding();
     bool notaMuon = (parCode == mupPDG || parCode == mumPDG ) ? false : true;
-#ifdef DebugLog
     G4LogicalVolume* lv =
       aStep->GetPreStepPoint()->GetPhysicalVolume()->GetLogicalVolume();
     edm::LogInfo("HGCSim") << "HGCSD: Hit from standard path from "
@@ -121,13 +121,6 @@ uint32_t HGCSD::setDetUnitId(G4Step * aStep) {
   int module = touch->GetReplicaNumber(1);
   int iz     = touch->GetReplicaNumber(3)==1 ? 1 : -1;
   
-  //  std::cout << "layer=" << layer << "=" << touch->GetReplicaNumber(0) << "\t"
-  //  	    << "mod="   << module << "=" << touch->GetReplicaNumber(1) << "\t"
-  //	    << "izplmin=" << iz  << "=" << touch->GetReplicaNumber(3) << std::endl; 
-  //    int layer    = (touch->GetReplicaNumber(0));
-  //  int module = (touch->GetReplicaNumber(1));
-  //  int izplmin = (touch->GetReplicaNumber(3)); 
-
   return setDetUnitId (subdet, layer, module, iz, localpos);
 }
 
