@@ -12,6 +12,7 @@
 #include "DetectorDescription/Core/interface/DDValue.h"
 #include "FWCore/Framework/interface/ESTransientHandle.h"
 #include "Geometry/Records/interface/IdealGeometryRecord.h"
+#include "Geometry/HcalCommonData/interface/HcalDDDSimConstants.h"
 #include "FWCore/Utilities/interface/Exception.h"
 
 #include "Randomize.hh"
@@ -52,8 +53,9 @@ void const FastHFShowerLibrary::initHFShowerLibrary(const edm::EventSetup& iSetu
   iSetup.get<IdealGeometryRecord>().get(cpv);
 
   std::string name = "HcalHits";
-  hfshower = new HFShowerLibrary(name,*cpv,fast);
   numberingFromDDD = new HcalNumberingFromDDD(name, *cpv);  
+  const HcalDDDSimConstants& hcons = numberingFromDDD->ddConstants();
+  hfshower = new HFShowerLibrary(name,*cpv,hcons,fast);
   numberingScheme  = new HcalNumberingScheme();
 
 // Geant4 particles
