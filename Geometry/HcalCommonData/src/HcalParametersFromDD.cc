@@ -36,30 +36,6 @@ namespace {
 bool HcalParametersFromDD::build(const DDCompactView* cpv,
 				 HcalParameters& php) {
 
-
-  //Get the geometry parameters first
-  HcalGeomParameters *geom = new HcalGeomParameters(*cpv);
-  php.rHB    = geom->getConstRHB();
-  php.drHB   = geom->getConstDrHB();
-  php.modHB  = geom->getModHalfHBHE(0);
-  php.zHE    = geom->getConstZHE();
-  php.dzHE   = geom->getConstDzHE();
-  php.modHE  = geom->getModHalfHBHE(1);
-  php.zHO    = geom->getConstZHO();
-  php.dzVcal = geom->getConstDzHF();
-  php.rhoxHB = geom->getConstRhoxHB();
-  php.zxHB   = geom->getConstZxHB();
-  php.dyHB   = geom->getConstDyHB();
-  php.dxHB   = geom->getConstDxHB();
-  php.rhoxHE = geom->getConstRhoxHE();
-  php.zxHE   = geom->getConstZxHE();
-  php.dyHE   = geom->getConstDyHE();
-  php.dx1HE  = geom->getConstDx1HE();
-  php.dx2HE  = geom->getConstDx2HE();
-  php.layHB  = geom->getConstLayHB();
-  php.layHE  = geom->getConstLayHE();
-  php.rHO    = geom->getConstRHO();
-
   //Special parameters at simulation level
   std::string attribute = "OnlyForHcalSimNumbering"; 
   std::string value     = "any";
@@ -72,9 +48,17 @@ bool HcalParametersFromDD::build(const DDCompactView* cpv,
   DDFilteredView fv1(*cpv);
   fv1.addFilter(filter1);
   bool ok = fv1.firstChild();
+
   const int nEtaMax=100;
 
   if (ok) {
+    HcalGeomParameters *geom = new HcalGeomParameters();
+    geom->loadGeometry( fv1, php );
+    php.modHB  = geom->getModHalfHBHE(0);
+    php.modHE  = geom->getModHalfHBHE(1);
+    php.dzVcal = geom->getConstDzHF();
+    geom->getConstRHO(php.rHO);
+
     php.phioff   = DDVectorGetter::get( "phioff" );
     php.etaTable = DDVectorGetter::get( "etaTable" );
     php.rTable   = DDVectorGetter::get( "rTable" );
