@@ -11,17 +11,16 @@
 #include "DetectorDescription/Core/interface/DDVectorGetter.h"
 #include "DetectorDescription/Core/interface/DDFilteredView.h"
 #include "DetectorDescription/RegressionTest/interface/DDErrorDetection.h"
+#include "CondFormats/GeometryObjects/interface/HcalParameters.h"
 #include "CLHEP/Units/GlobalPhysicalConstants.h"
 #include "CLHEP/Units/GlobalSystemOfUnits.h"
 
 //#define DebugLog
 
-HcalGeomParameters::HcalGeomParameters(const DDCompactView& cpv) {
+HcalGeomParameters::HcalGeomParameters() {
 #ifdef DebugLog
   std::cout << "HcalGeomParameters::HcalGeomParameters ( const DDCompactView& cpv ) constructor" << std::endl;
 #endif
-
-  initialize(cpv);
 }
 
 HcalGeomParameters::~HcalGeomParameters() { 
@@ -30,12 +29,11 @@ HcalGeomParameters::~HcalGeomParameters() {
 #endif
 }
 
-std::vector<double> HcalGeomParameters::getConstRHO() const {
+void
+HcalGeomParameters::getConstRHO( std::vector<double>& rHO ) const {
 
-  std::vector<double> rHO;
   rHO.push_back(rminHO);
   for (int i=0; i<4; ++i) rHO.push_back(etaHO[i]);
-  return rHO;
 }
 
 std::vector<int> HcalGeomParameters::getModHalfHBHE(const int type) const {
@@ -47,32 +45,6 @@ std::vector<int> HcalGeomParameters::getModHalfHBHE(const int type) const {
     modHalf.push_back(nmodHE); modHalf.push_back(nzHE);
   }
   return modHalf;
-}
-
-void HcalGeomParameters::initialize(const DDCompactView& cpv) {
-
-  std::string attribute = "OnlyForHcalSimNumbering"; 
-  std::string value     = "any";
-  DDValue val(attribute, value, 0.0);
-  
-  DDSpecificsFilter filter;
-  filter.setCriteria(val, DDCompOp::not_equals,
-		     DDLogOp::AND, true, // compare strings otherwise doubles
-		     true  // use merged-specifics or simple-specifics
-		     );
-  DDFilteredView fv(cpv);
-  fv.addFilter(filter);
-  bool ok = fv.firstChild();
-
-  if (ok) {
-    //Load the Geometry parameters
-    loadGeometry(fv);
-  } else {
-    edm::LogError("HCalGeom") << "HcalGeomParameters: cannot get filtered "
-			      << " view for " << attribute << " not matching "
-			      << value;
-    throw cms::Exception("DDException") << "HcalGeomParameters: cannot match " << attribute << " to " << value;
-  }
 }
 
 unsigned int HcalGeomParameters::find(int element, 
@@ -98,7 +70,7 @@ double HcalGeomParameters::getEta(double r, double z) const {
   return tmp;
 }
 
-void HcalGeomParameters::loadGeometry(const DDFilteredView& _fv) {
+void HcalGeomParameters::loadGeometry(const DDFilteredView& _fv,  HcalParameters& php) {
 
   DDFilteredView fv = _fv;
   bool dodet=true, hf=false;
@@ -106,9 +78,9 @@ void HcalGeomParameters::loadGeometry(const DDFilteredView& _fv) {
   std::vector<int>    ib(20,0),   ie(20,0);
   std::vector<int>    izb, phib, ize, phie, izf, phif;
   std::vector<double> rxb;
-  rhoxb.clear(); zxb.clear(); dyxb.clear(); dzxb.clear();
-  layb.clear(); laye.clear();
-  zxe.clear(); rhoxe.clear(); dyxe.clear(); dx1e.clear(); dx2e.clear();
+  php.rhoxHB.clear(); php.zxHB.clear(); php.dyHB.clear(); php.dxHB.clear();
+  php.layHB.clear(); php.layHE.clear();
+  php.zxHE.clear(); php.rhoxHE.clear(); php.dyHE.clear(); php.dx1HE.clear(); php.dx2HE.clear();
   double zf = 0;
   dzVcal = -1.;
 
@@ -162,11 +134,11 @@ void HcalGeomParameters::loadGeometry(const DDFilteredView& _fv) {
 	  }
 	  if (!found) {
 	    rxb.push_back(t.Rho());
-	    rhoxb.push_back(t.Rho()*std::cos(t.phi()));
-	    zxb.push_back(std::abs(t.z()));
-	    dyxb.push_back(2.*dy);
-	    dzxb.push_back(2.*dz);
-	    layb.push_back(lay);
+	    php.rhoxHB.push_back(t.Rho()*std::cos(t.phi()));
+	    php.zxHB.push_back(std::abs(t.z()));
+	    php.dyHB.push_back(2.*dy);
+	    php.dxHB.push_back(2.*dz);
+	    php.layHB.push_back(lay);
 	  }
 	}
       }
@@ -192,25 +164,25 @@ void HcalGeomParameters::loadGeometry(const DDFilteredView& _fv) {
 	    z2 = tmp;
 	  }
 	  bool sok = true;
-	  for (unsigned int kk=0; kk<zho.size(); kk++) {
-	    if (std::abs(z2-zho[kk]) < 0.01) {
+	  for (unsigned int kk=0; kk<php.zHO.size(); kk++) {
+	    if (std::abs(z2-php.zHO[kk]) < 0.01) {
 	      sok = false;
 	      break;
-	    }	else if (z2 < zho[kk]) {
-	      zho.resize(zho.size()+2);
-	      for (unsigned int kz=zho.size()-1; kz>kk+1; kz=kz-2) {
-		zho[kz]   = zho[kz-2];
-		zho[kz-1] = zho[kz-3];
+	    }	else if (z2 < php.zHO[kk]) {
+	      php.zHO.resize(php.zHO.size()+2);
+	      for (unsigned int kz=php.zHO.size()-1; kz>kk+1; kz=kz-2) {
+		php.zHO[kz]   = php.zHO[kz-2];
+		php.zHO[kz-1] = php.zHO[kz-3];
 	      }
-	      zho[kk+1] = z2;
-	      zho[kk]   = z1;
+	      php.zHO[kk+1] = z2;
+	      php.zHO[kk]   = z1;
 	      sok = false;
 	      break;
 	    }
 	  }
 	  if (sok) {
-	    zho.push_back(z1);
-	    zho.push_back(z2);
+	    php.zHO.push_back(z1);
+	    php.zHO.push_back(z2);
 	  }
 #ifdef DebugLog
 	  std::cout << "Detector " << idet << " Lay " << lay << " fi " << ifi 
@@ -229,21 +201,21 @@ void HcalGeomParameters::loadGeometry(const DDFilteredView& _fv) {
 	ze[lay] += std::abs(t.z());
 	if (thke[lay] <= 0) thke[lay] = dz;
 	bool found = false;
-	for (unsigned int k=0; k<zxe.size(); k++) {
-	  if (std::abs(zxe[k]-std::abs(t.z())) < 0.01) {
+	for (unsigned int k=0; k<php.zxHE.size(); k++) {
+	  if (std::abs(php.zxHE[k]-std::abs(t.z())) < 0.01) {
 	    found = true;
 	    break;
 	  }
 	}
 	if (!found) {
-	  zxe.push_back(std::abs(t.z()));
-	  rhoxe.push_back(t.Rho()*std::cos(t.phi()));
-	  dyxe.push_back(dy*std::cos(t.phi()));
+	  php.zxHE.push_back(std::abs(t.z()));
+	  php.rhoxHE.push_back(t.Rho()*std::cos(t.phi()));
+	  php.dyHE.push_back(dy*std::cos(t.phi()));
 	  dx1 -= 0.5*(t.rho()-dy)*std::cos(t.phi())*std::tan(10*CLHEP::deg);
 	  dx2 -= 0.5*(t.rho()+dy)*std::cos(t.phi())*std::tan(10*CLHEP::deg);
-	  dx1e.push_back(-dx1);
-	  dx2e.push_back(-dx2);
-	  laye.push_back(lay);
+	  php.dx1HE.push_back(-dx1);
+	  php.dx2HE.push_back(-dx2);
+	  php.layHE.push_back(lay);
 	}
       }
       if (copy[nsiz-1] == 21 || copy[nsiz-1] == 71) {
@@ -313,35 +285,35 @@ void HcalGeomParameters::loadGeometry(const DDFilteredView& _fv) {
   }
 
 #ifdef DebugLog
-  for (unsigned int k=0; k<layb.size(); ++k)
-    std::cout << "HB: " << layb[k] << " R " << rxb[k] << " " << rhoxb[k] << " Z " << zxb[k] << " DY " << dyxb[k] << " DZ " << dzxb[k] << "\n";
-  for (unsigned int k=0; k<laye.size(); ++k) 
-    std::cout << "HE: " << laye[k] << " R " << rhoxe[k] << " Z " << zxe[k] << " X1|X2 " << dx1e[k] << "|" << dx2e[k] << " DY " << dyxe[k] << "\n";
+  for (unsigned int k=0; k<php.layHB.size(); ++k)
+    std::cout << "HB: " << php.layHB[k] << " R " << rxb[k] << " " << php.rhoxHB[k] << " Z " << php.zxHB[k] << " DY " << php.dyHB[k] << " DZ " << php.dxHB[k] << "\n";
+  for (unsigned int k=0; k<php.layHE.size(); ++k) 
+    std::cout << "HE: " << php.layHE[k] << " R " << php.rhoxHE[k] << " Z " << php.zxHE[k] << " X1|X2 " << php.dx1HE[k] << "|" << php.dx2HE[k] << " DY " << php.dyHE[k] << "\n";
   std::cout << "HcalGeomParameters: Maximum Layer for HB " << ibmx << " for HE "
 	    << iemx << " Z for HF " << zf << " extent " << dzVcal << std::endl;
 #endif
 
   if (ibmx > 0) {
-    rHB.resize(ibmx);
-    drHB.resize(ibmx);
+    php.rHB.resize(ibmx);
+    php.drHB.resize(ibmx);
     for (int i=0; i<ibmx; i++) {
-      rHB[i]  = rb[i];
-      drHB[i] = thkb[i];
+      php.rHB[i]  = rb[i];
+      php.drHB[i] = thkb[i];
 #ifdef DebugLog
-      std::cout << "HcalGeomParameters: rHB[" << i << "] = " << rHB[i] 
-		<< " drHB[" << i << "] = " << drHB[i] << std::endl;
+      std::cout << "HcalGeomParameters: php.rHB[" << i << "] = " << php.rHB[i] 
+		<< " php.drHB[" << i << "] = " << php.drHB[i] << std::endl;
 #endif
     }
   }
   if (iemx > 0) {
-    zHE.resize(iemx);
-    dzHE.resize(iemx);
+    php.zHE.resize(iemx);
+    php.dzHE.resize(iemx);
     for (int i=0; i<iemx; i++) {
-      zHE[i]  = ze[i];
-      dzHE[i] = thke[i];
+      php.zHE[i]  = ze[i];
+      php.dzHE[i] = thke[i];
 #ifdef DebugLog
-      std::cout << "HcalGeomParameters: zHE[" << i << "] = " << zHE[i] 
-		<< " dzHE[" << i << "] = " << dzHE[i] << std::endl;
+      std::cout << "HcalGeomParameters: php.zHE[" << i << "] = " << php.zHE[i] 
+		<< " php.dzHE[" << i << "] = " << php.dzHE[i] << std::endl;
 #endif
     }
   }
@@ -373,16 +345,16 @@ void HcalGeomParameters::loadGeometry(const DDFilteredView& _fv) {
 #endif
 
 #ifdef DebugLog
-  std::cout << "HO has Z of size " << zho.size() << std::endl;
-  for (unsigned int kk=0; kk<zho.size(); kk++)
-    std::cout << "ZHO[" << kk << "] = " << zho[kk] << std::endl;
+  std::cout << "HO has Z of size " << php.zHO.size() << std::endl;
+  for (unsigned int kk=0; kk<php.zHO.size(); kk++)
+    std::cout << "ZHO[" << kk << "] = " << php.zHO[kk] << std::endl;
 #endif
-  if (ibmx > 17 && zho.size() > 4) {
-    rminHO   = rHB[17]-100.0;
-    etaHO[0] = getEta(0.5*(rHB[17]+rHB[18]), zho[1]);
-    etaHO[1] = getEta(rHB[18]+drHB[18], zho[2]);
-    etaHO[2] = getEta(rHB[18]-drHB[18], zho[3]);
-    etaHO[3] = getEta(rHB[18]+drHB[18], zho[4]);
+  if (ibmx > 17 && php.zHO.size() > 4) {
+    rminHO   = php.rHB[17]-100.0;
+    etaHO[0] = getEta(0.5*(php.rHB[17]+php.rHB[18]), php.zHO[1]);
+    etaHO[1] = getEta(php.rHB[18]+php.drHB[18], php.zHO[2]);
+    etaHO[2] = getEta(php.rHB[18]-php.drHB[18], php.zHO[3]);
+    etaHO[3] = getEta(php.rHB[18]+php.drHB[18], php.zHO[4]);
   } else {
     rminHO   =-1.0;
     etaHO[0] = etaHO[1] = etaHO[2] = etaHO[3] = 0;
@@ -390,9 +362,9 @@ void HcalGeomParameters::loadGeometry(const DDFilteredView& _fv) {
 #ifdef DebugLog
   std::cout << "HO Eta boundaries " << etaHO[0] << " " << etaHO[1]
 	    << " " << etaHO[2] << " " << etaHO[3] << std::endl;
-  std::cout << "HO Parameters " << rminHO << " " << zho.size();
+  std::cout << "HO Parameters " << rminHO << " " << php.zHO.size();
   for (int i=0; i<4; ++i) std::cout << " eta[" << i << "] = " << etaHO[i];
-  for (unsigned int i=0; i<zho.size(); ++i) std::cout << " zho[" << i << "] = " << zho[i];
+  for (unsigned int i=0; i<php.zHO.size(); ++i) std::cout << " zho[" << i << "] = " << php.zHO[i];
   std::cout << std::endl;
 #endif
 }
