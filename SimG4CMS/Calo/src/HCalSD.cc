@@ -478,29 +478,32 @@ double HCalSD::getEnergyDeposit(G4Step* aStep) {
   G4Track* theTrack = aStep->GetTrack();
 
   const G4VTouchable* touch = aStep->GetPreStepPoint()->GetTouchable();
-  int depth = (touch->GetReplicaNumber(0))%10;
-  int det   = ((touch->GetReplicaNumber(1))/1000)-3;
-  if (depth==0 && (det==0 || det==1)) weight = layer0wt[det];
+  uint32_t detid = setDetUnitId(aStep);
+  int det(0), ieta(0), phi(0), z(0), lay, depth;
+  if (testNumber) {
+    HcalTestNumbering::unpackHcalIndex(detid,det,z,depth,ieta,phi,lay);
+    if (z==0) z = -1;
+  } else {
+    HcalDetId hcid(detid);
+    det  = hcid.subdetId();
+    ieta = hcid.ietaAbs();
+    phi  = hcid.iphi();
+    z    = hcid.zside();
+  }
+  depth = (touch->GetReplicaNumber(0))%10;
+  lay   = (touch->GetReplicaNumber(0)/10)%100 + 1;
+#ifdef DebugLog
+  edm::LogInfo("HcalSim") << "HCalSD: det: " << det << " ieta: "<< ieta 
+			  << " iphi: " << phi << " zside " << z << "  lay: " 
+			  << lay-2;
+#endif 
+  if (depth==0 && (det==1 || det==2)) weight = hcalConstants->getLayer0Wt(det,phi,z);
   if (useLayerWt) {
-    int lay   = (touch->GetReplicaNumber(0)/10)%100 + 1;
     G4ThreeVector hitPoint = aStep->GetPreStepPoint()->GetPosition();
     weight = layerWeight(det+3, hitPoint, depth, lay);
   }
 
-  if (m_HEDarkening !=0 && det == 1) {
-    int lay = (touch->GetReplicaNumber(0)/10)%100 + 1;
-	int ieta;
-	uint32_t detid = setDetUnitId(aStep);
-	if(testNumber) {
-	  int det, z, depth, eta, phi, lay;
-	  HcalTestNumbering::unpackHcalIndex(detid,det,z,depth,eta,phi,lay);
-	  ieta = eta;
-	}
-	else ieta = HcalDetId(detid).ietaAbs();
-#ifdef DebugLog
-    edm::LogInfo("HcalSim") << "HCalSD:HE_Darkening >>>  ieta: "<< ieta //<< " vs. ietaAbs(): " << HcalDetId(detid).ietaAbs()
-			    << "    lay: " << lay-2;
-#endif 
+  if (m_HEDarkening !=0 && det == 2) {
     float dweight = m_HEDarkening->degradation(deliveredLumi,ieta,lay-2);//NB:diff. layer count
     weight *= dweight;
 #ifdef DebugLog
@@ -544,7 +547,7 @@ double HCalSD::getEnergyDeposit(G4Step* aStep) {
 			  << " " << wt2; 
 #endif
   double edep = weight*wt1*destep;
-  if(wt2 > 0.0) { edep *= wt2; }
+  if (wt2 > 0.0) { edep *= wt2; }
   return edep;
 }
 
@@ -591,13 +594,6 @@ void HCalSD::update(const BeginOfJob * job) {
   for (unsigned int ig=0; ig<gpar.size(); ig++)
     edm::LogInfo("HcalSim") << "HCalSD: gpar[" << ig << "] = "
 			    << gpar[ig]/cm << " cm";
-
-  //Layer0 Weight
-  layer0wt = hcalConstants->getLayer0Wt();
-  edm::LogInfo("HcalSim") << "HCalSD: " << layer0wt.size() << " Layer0Wt";
-  for (unsigned int it=0; it<layer0wt.size(); ++it)
-    edm::LogInfo("HcalSim") << "HCalSD: [" << it << "] " << layer0wt[it];
-
 }
  
 void HCalSD::initRun() {

@@ -94,7 +94,7 @@ private:
   double                        eminHitHB, eminHitHE, eminHitHO, eminHitHF;
   double                        deliveredLumi;
   G4int                         mumPDG, mupPDG;
-  std::vector<double>           layer0wt, gpar;
+  std::vector<double>           gpar;
   std::vector<int>              hfLevels;
   std::vector<G4String>         hfNames, fibreNames, matNames;
   std::vector<G4Material*>      materials;
