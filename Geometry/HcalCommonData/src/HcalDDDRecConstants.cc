@@ -6,7 +6,7 @@
 #include "CLHEP/Units/GlobalPhysicalConstants.h"
 #include "CLHEP/Units/GlobalSystemOfUnits.h"
 
-//#define EDM_ML_DEBUG
+#define EDM_ML_DEBUG
 
 enum {kHOSizePreLS1 = 2160, kHFSizePreLS1 = 1728} ;
 
@@ -474,7 +474,8 @@ void HcalDDDRecConstants::specialRBXHBHE(const std::vector<HcalDetId>& idsOld,
 
 
 void HcalDDDRecConstants::getOneEtaBin(int subdet, int ieta, int zside,
-				       std::vector<std::pair<int,double> >& phis, std::vector<HcalDDDRecConstants::HcalEtaBin>& bins) const {
+				       std::vector<std::pair<int,double> >& phis, 
+				       std::vector<HcalDDDRecConstants::HcalEtaBin>& bins) const {
 
   unsigned int lymax = (subdet == 1) ? 17 : 19;
   double       dphi  = phibin[ieta-1];
@@ -494,9 +495,9 @@ void HcalDDDRecConstants::getOneEtaBin(int subdet, int ieta, int zside,
 	      << " lymax " << lymx0	<< ":" << lymax << " Depth " << dep;
     for (unsigned int l=0; l<lymax; ++l)
       std::cout << " [" << l << "] " << layerGroup(ieta-1, l);
-    std::cout  << std::endl << " with " << phiUse.size() << " phis";
-    for (unsigned int l=0; l<phiUse.size(); ++l)
-      std::cout << " " << phiUse[l].first << ":" << phiUse[l].second;
+    std::cout  << std::endl << " with " << phis.size() << " phis";
+    for (unsigned int l=0; l<phis.size(); ++l)
+      std::cout << " " << phis[l].first << ":" << phis[l].second;
     std::cout << std::endl;
 #endif
     for (unsigned int l=0; l<lymx0; ++l) {
@@ -703,14 +704,16 @@ void HcalDDDRecConstants::initialize(void) {
 	    << "and for special RBX " << depthMaxSp_.first << ":" 
 	    << depthMaxSp_.second << std::endl;
 #endif
-  /*
+
   //Map of special DetId's
   std::vector<int> phis;
   int              zside(0);
-  int subdet = hcons.ldMap()->validDet(zside,phis);
-  if ((subdet == static_cast<int>(HcalBarrel)) ||
-      (subdet == static_cast<int>(HcalEndcap))) {
-    int lymax = (subdet == static_cast<int>(HcalBarrel)) ? 17 : 19;
+  int              subdet0 = hcons.ldMap()->validDet(zside,phis);
+  int              phi     = phis[0];
+  if ((subdet0 == static_cast<int>(HcalBarrel)) ||
+      (subdet0 == static_cast<int>(HcalEndcap))) {
+    HcalSubdetector subdet = (subdet0 == static_cast<int>(HcalBarrel)) ? HcalBarrel : HcalEndcap;
+    int lymax = (subdet == HcalBarrel) ? 17 : 19;
     std::pair<int,int>etas = hcons.ldMap()->validEta();
     for (int eta=etas.first; eta<=etas.second; ++eta) {
       std::map<int,std::pair<int,int> > oldDep;
@@ -726,9 +729,44 @@ void HcalDDDRecConstants::initialize(void) {
       }
       if (depth != 0) oldDep[depth] = std::pair<int,int>(lmin,lymax-1);
       std::pair<int,int> depths = hcons.ldMap()->getDepths(eta);
+      for (int ndepth=depths.first; ndepth<=depths.second; ++ndepth) {
+	std::vector<int> count(oldDep.size(),0);
+	unsigned int l(0);
+	int layFront = hcons.ldMap()->getLayerFront(subdet0,eta,phi,zside,ndepth);
+	int layBack  = hcons.ldMap()->getLayerBack(subdet0,eta,phi,zside,ndepth);
+	for (int lay=layFront; lay<=layBack; ++lay) {
+	  for (std::map<int,std::pair<int,int> >::iterator itr=oldDep.begin();
+	       itr != oldDep.end(); ++itr,++l) {
+	    if (lay >= (itr->second).first && lay <= (itr->second).second) {
+	      ++count[l]; break;
+	    }
+	  }
+	}
+	int odepth(0), minlay(0);
+	l = 0;
+	for (std::map<int,std::pair<int,int> >::iterator itr=oldDep.begin();
+	     itr != oldDep.end(); ++itr,++l) {
+	  if (count[l] > minlay) {
+	    odepth = itr->first;
+	    minlay = count[l];
+	  }
+	}
+	HcalDetId newId(subdet,zside*eta,phis[0],ndepth);
+	HcalDetId oldId(subdet,zside*eta,phis[0],odepth);
+	detIdSp_[newId] = oldId;
+      }
     }
+#ifdef EDM_ML_DEBUG
+    std::cout << "Map for merging new channels to old channel IDs with "
+	      << detIdSp_.size() << " entries" << std::endl;
+    int l(0);
+    for (std::map<HcalDetId,HcalDetId>::const_iterator itr=detIdSp_.begin();
+	 itr != detIdSp_.end(); ++itr,++l)
+      std::cout << "[" << l << "] Special " << itr->first << " Standard "
+		<< itr->second << std::endl;
+#endif
   }
-  */
+
 }
 
 unsigned int HcalDDDRecConstants::layerGroupSize(int eta) const {
