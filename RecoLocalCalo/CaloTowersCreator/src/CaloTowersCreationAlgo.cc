@@ -556,14 +556,14 @@ void CaloTowersCreationAlgo::assignHitHcal(const CaloRecHit * recHit) {
 
   double energy = recHit->energy();  // original RecHit energy is used to apply thresholds  
   double e = energy * weight;        // energies scaled by user weight: used in energy assignments
-        
+  
+  bool merge(false);   
   // SPECIAL handling of tower 28 merged depths --> half into tower 28 and half into tower 29
   if (detId.det()==DetId::Hcal && 
       HcalDetId(detId).subdet()==HcalEndcap &&
       (theHcalPhase==0 || theHcalPhase==1) &&
       //HcalDetId(detId).depth()==3 &&
       HcalDetId(detId).ietaAbs()==theHcalTopology->lastHERing()-1) {
-    bool merge(false);
     if (subdetOne == HcalEndcap && (std::find(phizOne.begin(),phizOne.end(),std::pair<int,int>(HcalDetId(detId).iphi(),HcalDetId(detId).zside())) != phizOne.end())) {
       merge = (std::find(mergedDepthsOne.begin(), mergedDepthsOne.end(), HcalDetId(detId).depth())!=mergedDepthsOne.end());
 #ifdef EDM_ML_DEBUG
@@ -581,7 +581,8 @@ void CaloTowersCreationAlgo::assignHitHcal(const CaloRecHit * recHit) {
 	      << ":" << HcalDetId(detId).depth() << ":" << merge
 	      << std::endl;
 #endif
-    if (merge) {
+  }
+  if (merge) {
 
       //////////////////////////////    unsigned int chStatusForCT = hcalChanStatusForCaloTower(recHit);
       
@@ -643,7 +644,6 @@ void CaloTowersCreationAlgo::assignHitHcal(const CaloRecHit * recHit) {
 	tower28.E_outer += e28;
 	tower29.E_outer += e29;
       } // not a "bad" hit
-    }
   }  // end of special case 
   
   else {
