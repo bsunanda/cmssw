@@ -3,15 +3,15 @@
 // .L CalibMonitor.C+g
 //  CalibMonitor c1(fname, dirname, dupFileName, outFileName, prefix, 
 //                  corrFileName, rcorFileName, flag, numb, dataMC,
-//                  useGen, scale,  etalo, etahi, runlo, runhi, phimin,
-//                  phimax, zside, rbx, exclude, etamax);
+//                  truncateFlag, useGen, scale, useScale, etalo, etahi,
+//                  runlo, runhi, phimin, phimax, zside, rbx, exclude, etamax);
 //  c1.Loop();
 //  c1.SavePlot(histFileName,append,all);
 //
 //        This will prepare a set of histograms which can be used for a
 //        quick fit and display using the methods in CalibFitPlots.C
 //
-//  GetEntries g1(fname, dirname, bit1, bit2);
+//  GetEntries g1(fname, dirname, dupFileName, bit1, bit2);
 //  g1.Loop();
 //
 //         This looks into the tree *EventInfo* and can provide a set
@@ -35,21 +35,29 @@
 //                               factors as a function of run numbers to be 
 //                               used for raddam correction 
 //                               (default="", no corr.)
-//   flag (int)                = 5 digit integer (lthdo) with specific control
-//                               information (l=1/0 for (not) making plots for
-//                               each RBX; t=0/1 for doing or not the PU
-//                               correction; h = 0/1/2 for not creating/
-//                               creating in recreate mode/creating in append 
-//                               mode the output text file; d = 0/1/2/3 
-//                               produces 3 standard (0,1,2) or extended (3) 
-//                               set of histograms; o = 0/1/2 for tight/loose/
-//                               flexible selection). Default = 0
+//   flag (int)                = 6 digit integer (mlthdo) with specific control
+//                               information (m=1/0 for having 50 or 100 bins
+//                               in the response distribution with range 0:5;
+//                               l=1/0 for (not) making plots for each RBX;
+//                               t=1/0 for doing or not the PU correction;
+//                               h = 0/1/2 for not creating/creating in recreate
+//                               mode/creating in append mode the output text 
+//                               file; d = 0/1/2/3 produces 3 standard (0,1,2) 
+//                               or extended (3) set of histograms; o = 0/1/2 
+//                               for tight/loose/flexible selection).
+//                               Default = 1031
 //   numb   (int)              = number of eta bins (50 for -25:25)
 //   dataMC (bool)             = true/false for data/MC (default true)
+//   truncateFlag    (int)     = Flag to treat different depths differently (0)
+//                               both depths of ieta 15, 16 of HB as depth 1 (1)
+//                               all depths as depth 1 (2) (Default 0)
 //   useGen (bool)             = true/false to use generator level momentum
 //                               or reconstruction level momentum (def false)
 //   scale (double)            = energy scale if correction factor to be used
 //                               (default = 1.0)
+//   useScale (int)            = application of scale factor (0: nowehere,
+//                               1: barrel; 2: endcap, 3: everywhere)
+//                               barrel => |ieta| < 16; endcap => |ieta| > 15
 //   etalo/etahi (int,int)     = |eta| ranges (0:30)
 //   runlo  (int)              = lower value of run number (def -1)
 //   runhi  (int)              = higher value of run number (def 9999999)
@@ -59,7 +67,7 @@
 //                               differ from 1-72 (1)
 //   rbx             (int)     = zside*(Subdet*100+RBX #) to be consdered (0)
 //   exclude         (bool)    = RBX specified by *rbx* to be exluded or only
-//                               considered (true)
+//                               considered (false)
 //   etamax          (bool)    = if set and if the corr-factor not found in the
 //                               corrFactor table, the corr-factor for the
 //                               corresponding zside, depth=1 and maximum ieta
@@ -203,10 +211,11 @@ public :
 	       const std::string& prefix="", 
 	       const char *       corrFileName="",
 	       const char *       rcorFileName="", 
-	       int flag=0, int numb=50, bool datMC=true, bool useGen=false, 
-	       double scale=1.0, int etalo=0, int etahi=30, int runlo=-1, 
-	       int runhi=99999999, int phimin=1, int phimax=72, int zside=1,
-	       int rbx=0, bool exclude=true, bool etamax=false);
+	       int flag=1031, int numb=50, bool datMC=true, int truncateFlag=0,
+	       bool useGen=false, double scale=1.0, int useScale=0, 
+	       int etalo=0, int etahi=30, int runlo=-1, int runhi=99999999,
+	       int phimin=1, int phimax=72, int zside=1, int rbx=0, 
+	       bool exclude=false, bool etamax=false);
   virtual ~CalibMonitor();
   virtual Int_t              Cut(Long64_t entry);
   virtual Int_t              GetEntry(Long64_t entry);
@@ -223,6 +232,7 @@ public :
 				      bool append, bool all=false);
   bool                       ReadCorrFactor(const char* fName);
   std::vector<std::string>   SplitString (const std::string& fLine);
+  double                     getFactor(const int& ieta);
 private:
 
   static const unsigned int npbin=5, kp50=2;
@@ -231,6 +241,7 @@ private:
   const std::string         fname_, dirnm_, prefix_, outFileName_;
   const int                 flag_, numb_;
   const bool                dataMC_, useGen_, etaMax_;
+  const int                 truncateFlag_, useScale_;
   const int                 etalo_, etahi_, runlo_, runhi_;
   const int                 phimin_,phimax_,zside_, rbx_;
   const double              scale_;
@@ -256,7 +267,8 @@ CalibMonitor::CalibMonitor(const std::string& fname,
 			   const std::string& prefix, 
 			   const char*        corrFileName,
 			   const char*        rcorFileName, int flag, 
-			   int numb, bool dataMC, bool useGen, double scale, 
+			   int numb, bool dataMC, int truncate, 
+			   bool useGen, double scale, int useScale,
 			   int etalo, int etahi, int runlo, int runhi, 
 			   int phimin, int phimax, int zside, int rbx, bool exc,
 			   bool etam) : cFactor_(nullptr), cSelect_(nullptr),
@@ -265,7 +277,8 @@ CalibMonitor::CalibMonitor(const std::string& fname,
 					outFileName_(std::string(outFName)),
 					flag_(flag), numb_(numb),
 					dataMC_(dataMC), useGen_(useGen), 
-					etaMax_(etam), etalo_(etalo), 
+					etaMax_(etam), truncateFlag_(truncate),
+					useScale_(useScale), etalo_(etalo), 
 					etahi_(etahi), runlo_(runlo), 
 					runhi_(runhi), phimin_(phimin), 
 					phimax_(phimax), zside_(zside), 
@@ -299,7 +312,7 @@ CalibMonitor::CalibMonitor(const std::string& fname,
 	    << corrE_ << std::endl;
   if (std::string(rcorFileName) != "")
     cFactor_ = new CalibCorr(rcorFileName,false);
-  if (rbx != 0) cSelect_ = new CalibSelectRBX(rbx);
+  if (rbx != 0) cSelect_ = new CalibSelectRBX(rbx, false);
 }
 
 CalibMonitor::~CalibMonitor() {
@@ -698,8 +711,8 @@ void CalibMonitor::Loop() {
     Long64_t ientry = LoadTree(jentry);
     if (ientry < 0) break;
     nb = fChain->GetEntry(jentry);   nbytes += nb;
-    if (jentry%10000 == 0) std::cout << "Entry " << jentry << " Run " << t_Run
-				     << " Event " << t_Event << std::endl;
+    if (jentry%100000 == 0) std::cout << "Entry " << jentry << " Run " << t_Run
+				      << " Event " << t_Event << std::endl;
     bool select = (std::find(entries_.begin(),entries_.end(),jentry) == entries_.end());
     if (!select) {
       ++duplicate;
@@ -800,9 +813,9 @@ void CalibMonitor::Loop() {
       eHcal = 0;
       for (unsigned int k=0; k<t_HitEnergies->size(); ++k) {
 	// The masks are defined in DataFormats/HcalDetId/interface/HcalDetId.h
-	int depth  = ((*t_DetIds)[k] >> 20) & (0xF);
-	int zside  = ((*t_DetIds)[k]&0x80000)?(1):(-1);
-	int ieta   = ((*t_DetIds)[k] >> 10) & (0x1FF);
+	unsigned int id = truncateId((*t_DetIds)[k],truncateFlag_,false);
+	int subdet,zside,ieta,iphi,depth;
+	unpackDetId(id,subdet,zside,ieta,iphi,depth);
 	std::map<std::pair<int,int>,double>::const_iterator 
 	  itr = cfactors_.find(std::pair<int,int>(zside*ieta,depth));
 	double cfac(1.0);
@@ -813,6 +826,18 @@ void CalibMonitor::Loop() {
 	  if (zside < 0 && ieta > -etamn_) cfac = cfacmn_;
 	}
 	if (cFactor_ != 0) cfac *= cFactor_->getCorr(t_Run,(*t_DetIds)[k]);
+	eHcal += (cfac*((*t_HitEnergies)[k]));
+	if (debug) std::cout << zside << ":" << ieta << ":" << depth 
+			     << " Corr " << cfac << " " << (*t_HitEnergies)[k] 
+			     << " Out " << eHcal << std::endl;
+      }
+    } else if (useScale_ != 0) {
+      eHcal = 0;
+      for (unsigned int k=0; k<t_HitEnergies->size(); ++k) {
+	unsigned int id = truncateId((*t_DetIds)[k],truncateFlag_,false);
+	int subdet,zside,ieta,iphi,depth;
+	unpackDetId(id,subdet,zside,ieta,iphi,depth);
+	double cfac = getFactor(ieta);
 	eHcal += (cfac*((*t_HitEnergies)[k]));
 	if (debug) std::cout << zside << ":" << ieta << ":" << depth 
 			     << " Corr " << cfac << " " << (*t_HitEnergies)[k] 
@@ -913,23 +938,27 @@ bool CalibMonitor::GoodTrack(double& eHcal, double &cuti, bool debug) {
       double Etot1(0), Etot3(0);
       // The masks are defined in DataFormats/HcalDetId/interface/HcalDetId.h
       for (unsigned int idet=0; idet<(*t_DetIds1).size(); idet++) { 
-	int depth  = ((*t_DetIds1)[idet] >> 20) & (0xF);
-	int zside  = ((*t_DetIds1)[idet]&0x80000)?(1):(-1);
-	int ieta   = ((*t_DetIds1)[idet] >> 10) & (0x1FF);
+	unsigned int id = truncateId((*t_DetIds1)[idet],truncateFlag_,false);
+	int subdet,zside,ieta,iphi,depth;
+	unpackDetId(id,subdet,zside,ieta,iphi,depth);
 	std::map<std::pair<int,int>,double>::const_iterator 
 	  itr = cfactors_.find(std::pair<int,int>(zside*ieta,depth));
-	double cfac = (itr == cfactors_.end()) ? 1.0 : itr->second;
+	double cfac = ((itr == cfactors_.end()) ? 
+		       ((useScale_ == 0) ? 1.0 : getFactor(ieta)) : 
+		       itr->second);
 	if (cFactor_ != 0) cfac *= cFactor_->getCorr(t_Run,(*t_DetIds1)[idet]);
 	double hitEn = cfac*(*t_HitEnergies1)[idet];
 	Etot1  += hitEn;
       }
       for (unsigned int idet=0; idet<(*t_DetIds3).size(); idet++) { 
-	int depth  = ((*t_DetIds3)[idet] >> 20) & (0xF);
-	int zside  = ((*t_DetIds3)[idet]&0x80000)?(1):(-1);
-	int ieta   = ((*t_DetIds3)[idet] >> 10) & (0x1FF);
+	unsigned int id = truncateId((*t_DetIds3)[idet],truncateFlag_,false);
+	int subdet,zside,ieta,iphi,depth;
+	unpackDetId(id,subdet,zside,ieta,iphi,depth);
 	std::map<std::pair<int,int>,double>::const_iterator 
 	  itr = cfactors_.find(std::pair<int,int>(zside*ieta,depth));
-	double cfac = (itr == cfactors_.end()) ? 1.0 : itr->second;
+	double cfac = ((itr == cfactors_.end()) ? 
+		       ((useScale_ == 0) ? 1.0 : getFactor(ieta)) : 
+		       itr->second);
 	if (cFactor_ != 0) cfac *= cFactor_->getCorr(t_Run,(*t_DetIds3)[idet]);
 	double hitEn = cfac*(*t_HitEnergies3)[idet];
 	Etot3  += hitEn;
@@ -1063,12 +1092,13 @@ bool CalibMonitor::ReadCorrFactor(const char* fname) {
 	  int   ieta  = std::atoi (items[1].c_str());
 	  int   depth = std::atoi (items[2].c_str());
 	  float corrf = std::atof (items[3].c_str());
-	  cfactors_[std::pair<int,int>(ieta,depth)] = scale_*corrf;
+	  double scale = getFactor(std::abs(ieta));
+	  cfactors_[std::pair<int,int>(ieta,depth)] = scale*corrf;
 	  if (ieta > etamp_ && depth == 1) {
-	    etamp_ = ieta; cfacmp_ = scale_*corrf;
+	    etamp_ = ieta; cfacmp_ = scale*corrf;
 	  }
 	  if (ieta < etamn_ && depth == 1) {
-	    etamn_ = ieta; cfacmn_ = scale_*corrf;
+	    etamn_ = ieta; cfacmn_ = scale*corrf;
 	  }
 	}
       }
@@ -1100,6 +1130,16 @@ std::vector<std::string> CalibMonitor::SplitString (const std::string& fLine) {
     }
   }
   return result;
+}
+
+double CalibMonitor::getFactor(const int& ieta) {
+  double scale(1.0);
+  if (ieta < 16) {
+    if ((useScale_ == 1) || (useScale_ == 3)) scale = scale_;
+  } else {
+    if ((useScale_ == 2) || (useScale_ == 3)) scale = scale_;
+  }
+  return scale;
 }
 
 template<class Hist> void CalibMonitor::DrawHist(Hist* hist, TCanvas* pad) {
@@ -1221,25 +1261,28 @@ public :
   TBranch                   *b_t_ietaGood;      //!
   TBranch                   *b_t_trackType;     //!
 
-  GetEntries(const std::string& fname, const std::string& dirname, 
-	     const unsigned int bit1, const unsigned int bit2);
+  GetEntries(const std::string & fname, const std::string & dirname,
+	     const char *dupFileName, const unsigned int bit1, 
+	     const unsigned int bit2);
   virtual ~GetEntries();
   virtual Int_t    Cut(Long64_t entry);
   virtual Int_t    GetEntry(Long64_t entry);
   virtual Long64_t LoadTree(Long64_t entry);
-  virtual void     Init(TTree *tree);
+  virtual void     Init(TTree *tree, const char *dupFileName);
   virtual void     Loop();
   virtual Bool_t   Notify();
   virtual void     Show(Long64_t entry = -1);
 
 private:
-  unsigned int     bit_[2];
-  TH1I            *h_tk[3], *h_eta[4], *h_pvx[3];
-  TH1D            *h_eff[3];
+  unsigned int              bit_[2];
+  std::vector<Long64_t>     entries_;
+  TH1I                     *h_tk[3], *h_eta[4], *h_pvx[3];
+  TH1D                     *h_eff[3];
 };
 
 GetEntries::GetEntries(const std::string& fname, const std::string& dirnm,
-		       const unsigned int bit1, const unsigned int bit2) {
+		       const char *dupFileName, const unsigned int bit1, 
+		       const unsigned int bit2) {
 
   TFile      *file = new TFile(fname.c_str());
   TDirectory *dir  = (TDirectory*)file->FindObjectAny(dirnm.c_str());
@@ -1247,7 +1290,7 @@ GetEntries::GetEntries(const std::string& fname, const std::string& dirnm,
   TTree      *tree = (TTree*)dir->Get("EventInfo");
   std::cout << "CalibTree " << tree << std::endl;
   bit_[0] = bit1; bit_[1] = bit2;
-  Init(tree);
+  Init(tree, dupFileName);
 }
 
 GetEntries::~GetEntries() {
@@ -1275,7 +1318,7 @@ Long64_t GetEntries::LoadTree(Long64_t entry) {
   return centry;
 }
 
-void GetEntries::Init(TTree *tree) {
+void GetEntries::Init(TTree *tree, const char *dupFileName) {
   // The Init() function is called when the selector needs to initialize
   // a new tree or chain. Typically here the branch addresses and branch
   // pointers of the tree will be set.
@@ -1311,6 +1354,21 @@ void GetEntries::Init(TTree *tree) {
   fChain->SetBranchAddress("t_ietaGood",    &t_ietaGood,    &b_t_ietaGood);
   fChain->SetBranchAddress("t_trackType",   &t_trackType,   &b_t_trackType);
   Notify();
+
+  ifstream infile(dupFileName);
+  if (!infile.is_open()) {
+    std::cout << "Cannot open " << dupFileName << std::endl;
+  } else {
+    while (1) {
+      Long64_t jentry;
+      infile >> jentry;
+      if (!infile.good()) break;
+      entries_.push_back(jentry);
+    }
+    infile.close();
+    std::cout << "Reads a list of " << entries_.size() << " events from " 
+	      << dupFileName << std::endl;
+  }
 
   h_tk[0] = new TH1I("Track0", "# of tracks produced",      2000, 0, 2000);
   h_tk[1] = new TH1I("Track1", "# of tracks propagated",    2000, 0, 2000);
@@ -1379,16 +1437,20 @@ void GetEntries::Loop() {
 
   Long64_t nentries = fChain->GetEntriesFast();
   Long64_t nbytes = 0, nb = 0;
-  int      kount(0), selected(0);
-  int      l1(0), hlt(0), loose(0), tight(0);
-  int      allHLT[3] = {0,0,0};
-  int      looseHLT[3] = {0,0,0};
-  int       tightHLT[3] = {0, 0, 0};
+  unsigned int kount(0), duplicate(0), selected(0);
+  int          l1(0), hlt(0), loose(0), tight(0);
+  int          allHLT[3] = {0,0,0};
+  int          looseHLT[3] = {0,0,0};
+  int          tightHLT[3] = {0, 0, 0};
   for (Long64_t jentry=0; jentry<nentries;jentry++) {
     Long64_t ientry = LoadTree(jentry);
     if (ientry < 0) break;
     nb = fChain->GetEntry(jentry);   nbytes += nb;
-    // if (Cut(ientry) < 0) continue;
+    bool select = (std::find(entries_.begin(),entries_.end(),jentry) == entries_.end());
+    if (!select) {
+      ++duplicate;
+      continue;
+    }
     h_tk[0]->Fill(t_Tracks);
     h_tk[1]->Fill(t_TracksProp);
     h_tk[2]->Fill(t_TracksSaved);
@@ -1464,7 +1526,8 @@ void GetEntries::Loop() {
     h_eff[1]->SetBinContent(i,rat);
     h_eff[1]->SetBinError(i,drat);
   }
-  std::cout << "===== " << kount << " events passed trigger of which " 
+  std::cout << "===== Remove " << duplicate << " events from " << nentries
+	    << "\n===== " << kount << " events passed trigger of which " 
 	    << selected << " events get selected =====\n" << std::endl;
   std::cout << "===== " << l1 << " events passed L1 " << hlt 
 	    << " events passed HLT and " << loose << ":" << tight

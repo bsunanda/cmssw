@@ -440,34 +440,40 @@ void FitHistExtended(const char* infile, const char* outfile,std::string prefix,
 	TH1D* hist1 = (TH1D*)file->FindObjectAny(name);
 	if (debug) std::cout << "Get Histogram for " << name << " at " << hist1
 			     << std::endl;
-	TH1D* hist  = (TH1D*)hist1->Clone();
 	double value(0), error(0), total(0);
-	if (hist->GetEntries() > 0) {
-	  value = hist->GetMean(); error = hist->GetRMS();
-	  for (int i=1; i<=hist->GetNbinsX(); ++i) 
-	    total += hist->GetBinContent(i);
-	}
-	if (total > 4) {
-	  if (nv1 > j) nv1 = j;
-	  if (nv2 < j) nv2 = j;
-	  if (j == 0) {
-	    sprintf (name, "%sOne", hist1->GetName());
-	    TH1D* hist2  = (TH1D*)hist1->Clone(name);
-	    fitOneGauss(hist2,debug);
-	    hists.push_back(hist2);
-	    std::pair<double,double> meaner0 = fitTwoGauss(hist,debug);
-	    value = meaner0.first;
-	    error = meaner0.second;
-	  } else {
-	    std::pair<double,double> meaner = fitOneGauss(hist,debug);
-	    value = meaner.first; error = meaner.second;
+	if (hist1 == 0) {
+	  value = 1.0;
+	} else {
+	  TH1D* hist  = (TH1D*)hist1->Clone();
+	  if (hist->GetEntries() > 0) {
+	    value = hist->GetMean(); error = hist->GetRMS();
+	    for (int i=1; i<=hist->GetNbinsX(); ++i) 
+	      total += hist->GetBinContent(i);
 	  }
-	  if (j != 0) {
-	    if (j < jmin) jmin = j;
-	    if (j > jmax) jmax = j;
+	  if (total > 4) {
+	    if (nv1 > j) nv1 = j;
+	    if (nv2 < j) nv2 = j;
+	    if (j == 0) {
+	      sprintf (name, "%sOne", hist1->GetName());
+	      TH1D* hist2  = (TH1D*)hist1->Clone(name);
+	      fitOneGauss(hist2,debug);
+	      hists.push_back(hist2);
+	      std::pair<double,double> meaner0 = fitTwoGauss(hist,debug);
+	      value = meaner0.first;
+	      error = meaner0.second;
+	    } else {
+	      std::pair<double,double> meaner = fitOneGauss(hist,debug);
+	      value = meaner.first; error = meaner.second;
+	    }
+	    if (j != 0) {
+	      if (j < jmin) jmin = j;
+	      if (j > jmax) jmax = j;
+	    }
 	  }
+	  hists.push_back(hist);
 	}
-	hists.push_back(hist);
+	if (debug) std::cout << "Hist " << j << " Value " << value << " +- " 
+			     << error << std::endl;
 	if (j != 0) {
 	  histo->SetBinContent(j, value);
 	  histo->SetBinError(j, error);

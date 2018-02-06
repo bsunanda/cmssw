@@ -234,7 +234,6 @@ public :
   bool             goodTrack();
   void             writeCorrFactor(const char *corrFileName, int ietaMax);
   bool             selectPhi(unsigned int detId);
-  unsigned int     truncateId(unsigned int detId);
   std::pair<double,double> fitMean(TH1D*, int);
   void             makeplots(double rmin, double rmax, int ietaMax,
 			     bool useWeight, double fraction, bool debug);
@@ -507,7 +506,8 @@ Double_t CalibTree::Loop(int loop, TFile *fout, bool useweight, int nMin,
 	if (!isItRBX) {
 	  for (unsigned int idet=0; idet<(*t_DetIds).size(); idet++) { 
 	    if (selectPhi((*t_DetIds)[idet])) {
-	      unsigned int detid = truncateId((*t_DetIds)[idet]);
+	      unsigned int detid = truncateId((*t_DetIds)[idet],
+					      truncateFlag_,debug);
 	      if (debug && (kprint<=10))
 		std::cout << "DetId[" << idet << "] Original " << std::hex 
 			  << (*t_DetIds)[idet] << " truncated " << detid 
@@ -523,7 +523,8 @@ Double_t CalibTree::Loop(int loop, TFile *fout, bool useweight, int nMin,
 	  if (t_DetIds3 != 0) {
 	    for (unsigned int idet=0; idet<(*t_DetIds3).size(); idet++) { 
 	      if (selectPhi((*t_DetIds3)[idet])) {
-		unsigned int detid = truncateId((*t_DetIds3)[idet]);
+		unsigned int detid = truncateId((*t_DetIds3)[idet],
+						truncateFlag_,debug);
 		if (std::find(detIds.begin(),detIds.end(),detid)==detIds.end()){
 		  detIds.push_back(detid);
 		}
@@ -604,7 +605,7 @@ Double_t CalibTree::Loop(int loop, TFile *fout, bool useweight, int nMin,
 	if (selectPhi((*t_DetIds)[idet])) {
 	  unsigned int id = (*t_DetIds)[idet];
 	  double hitEn(0);
-	  unsigned int detid = truncateId(id);
+	  unsigned int detid = truncateId(id,truncateFlag_,false);
 	  if (Cprev.find(detid) != Cprev.end()) 
 	    hitEn = Cprev[detid].first * (*t_HitEnergies)[idet];
 	  else 
@@ -620,7 +621,8 @@ Double_t CalibTree::Loop(int loop, TFile *fout, bool useweight, int nMin,
 	for (unsigned int idet=0; idet<(*t_DetIds1).size(); idet++) { 
 	  if (selectPhi((*t_DetIds1)[idet])) {
 	    unsigned int id    = (*t_DetIds1)[idet];
-	    unsigned int detid = truncateId((unsigned int)(id));
+	    unsigned int detid = truncateId((unsigned int)(id),truncateFlag_,
+					    false);
 	    double hitEn(0);
 	    if (Cprev.find(detid) != Cprev.end()) 
 	      hitEn = Cprev[detid].first * (*t_HitEnergies1)[idet];
@@ -633,7 +635,8 @@ Double_t CalibTree::Loop(int loop, TFile *fout, bool useweight, int nMin,
 	for (unsigned int idet=0; idet<(*t_DetIds3).size(); idet++) { 
 	  if (selectPhi((*t_DetIds3)[idet])) {
 	    unsigned int id    = (*t_DetIds3)[idet];
-	    unsigned int detid = truncateId((unsigned int)(id));
+	    unsigned int detid = truncateId((unsigned int)(id),truncateFlag_,
+					    false);
 	    double hitEn(0);
 	    if (Cprev.find(detid) != Cprev.end()) 
 	      hitEn = Cprev[detid].first * (*t_HitEnergies3)[idet];
@@ -677,7 +680,7 @@ Double_t CalibTree::Loop(int loop, TFile *fout, bool useweight, int nMin,
 	for (unsigned int idet=0; idet<(*t_DetIds).size(); idet++) {
 	  if (selectPhi((*t_DetIds)[idet])) {
 	    unsigned int id    = (*t_DetIds)[idet];
-	    unsigned int detid = truncateId(id);
+	    unsigned int detid = truncateId(id,truncateFlag_,false);
 	    double hitEn=0.0;
 	    if (debug) std::cout << "idet " << idet << " detid/hitenergy : " 
 				 << std::hex << (*t_DetIds)[idet] << ":" 
@@ -968,23 +971,6 @@ bool CalibTree::selectPhi(unsigned int detId) {
   return flag;
 }
 
-unsigned int CalibTree::truncateId(unsigned int detId) {
-  unsigned int id(detId);
-  //std::cout << "Truncate 1 " << std::hex << detId << " " << id << std::dec << std::endl;
-  int subdet, depth, zside, ieta, iphi;
-  unpackDetId(detId, subdet, zside, ieta, iphi, depth);
-  if (truncateFlag_ == 1) {
-    //Ignore depth index of ieta values of 15 and 16 of HB
-    if ((subdet == 1) && (ieta > 14)) depth  = 1;
-  } else if (truncateFlag_ == 2) {
-    //Ignore depth index of ieta values of 15 and 16 of HB
-    depth = 1;
-  }
-  id = (subdet<<25) | (0x1000000) | ((depth&0xF)<<20) | ((zside>0)?(0x80000|(ieta<<10)):(ieta<<10));
-  //  std::cout << "Truncate 2: " << subdet << " " << zside*ieta << " " << depth << " " << std::hex << id << " input " << detId << std::dec << std::endl;
-  return id;
-}
-
 std::pair<double,double> CalibTree::fitMean(TH1D* hist, int mode) {
   std::pair<double,double> results = std::pair<double,double>(1,0);
   if (hist != 0) {
@@ -1056,7 +1042,7 @@ void CalibTree::makeplots(double rmin, double rmax, int ietaMax,
       for (unsigned int idet=0; idet<(*t_DetIds).size(); idet++) { 
 	double hitEn(0);
 	unsigned int id    = (*t_DetIds)[idet];
-        unsigned int detid = truncateId(id);
+        unsigned int detid = truncateId(id,truncateFlag_,false);
 	if (Cprev.find(detid) != Cprev.end()) 
 	  hitEn = Cprev[detid].first * (*t_HitEnergies)[idet];
 	else 
