@@ -241,8 +241,10 @@ double HGCalDDDConstants::cellThickness(int layer, int waferU,
 double HGCalDDDConstants::cellSizeHex(int type) const {
   int    indx = (((mode_ == HGCalGeometryMode::Hexagon8) ||
 		  (mode_ == HGCalGeometryMode::Hexagon8Full)) ?
-		 ((type >= 1) ? 1 : 0) : ((type == 1) ? 0 : 1)); 
-  double cell = (0.5*HGCalParameters::k_ScaleFromDDD*hgpar_->cellSize_[indx]);
+		 ((type >= 1) ? 1 : 0) : ((type == 1) ? 1 : 0)); 
+  double cell = ((mode_ == HGCalGeometryMode::Trapezoid) ? 
+		 0.5*hgpar_->cellSize_[indx] :
+		 0.5*HGCalParameters::k_ScaleFromDDD*hgpar_->cellSize_[indx]);
   return cell;
 }
 

@@ -37,6 +37,10 @@ public:
   bool                cellInLayer(int waferU, int waferV, int cellU, int cellV,
 				  int lay, bool reco) const;
   double              cellSizeHex(int type) const;
+  std::pair<double,double> cellSizeTrap(int type, int irad) const {
+    return std::pair<double,double>(hgpar_->radiusLayer_[type][irad-1],
+				    hgpar_->radiusLayer_[type][irad]);
+  }
   double              cellThickness(int layer, int waferU, int waferV) const;
   double              distFromEdgeHex(double x, double y, double z) const;
   double              distFromEdgeTrap(double x, double y, double z) const;

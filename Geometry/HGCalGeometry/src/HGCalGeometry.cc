@@ -290,13 +290,15 @@ HGCalGeometry::CornersVec HGCalGeometry::getCorners(const DetId& id) const {
 						id_.iCell1,id_.iCell2,true,false);
     }
     if (m_det == DetId::HGCalHSc) {
-      float dx = 0.5*m_cellVec2[cellIndex].param()[11];
+      std::pair<double,double> rr = m_topology.dddConstants().cellSizeTrap(id_.iType,id_.iSec1);
+      float dx = 0.5*(rr.second-rr.first);
+      float dy = 0.5*(rr.second+rr.first)*m_cellVec2[cellIndex].param()[11];
       float dz = m_cellVec2[cellIndex].param()[0];
       static const int signx[] = {-1,-1,1,1,-1,-1,1,1};
       static const int signy[] = {-1,1,1,-1,-1,1,1,-1};
       static const int signz[] = {-1,-1,-1,-1,1,1,1,1};
       for (unsigned int i = 0; i < ncorner; ++i) {
-	const HepGeom::Point3D<float> lcoord(xy.first+signx[i]*dx,xy.second+signy[i]*dx,signz[i]*dz);
+	const HepGeom::Point3D<float> lcoord(signx[i]*dx,signy[i]*dy,signz[i]*dz);
 	co[i] = m_cellVec2[cellIndex].getPosition(lcoord);
       }
     } else {
@@ -334,19 +336,26 @@ HGCalGeometry::CornersVec HGCalGeometry::get8Corners(const DetId& id) const {
       xy = m_topology.dddConstants().locateCell(id_.iLay,id_.iSec1,id_.iSec2,
 						id_.iCell1,id_.iCell2,true,false);
     }
-    float dx = ((m_det == DetId::HGCalHSc) ? 0.5*m_cellVec2[cellIndex].param()[11] :
-		m_cellVec[cellIndex].param()[1]);
-    float dz = ((m_det == DetId::HGCalHSc) ? m_cellVec2[cellIndex].param()[0] :
-		m_cellVec[cellIndex].param()[0]);
     static const int signx[] = {-1,-1,1,1,-1,-1,1,1};
     static const int signy[] = {-1,1,1,-1,-1,1,1,-1};
     static const int signz[] = {-1,-1,-1,-1,1,1,1,1};
-    for (unsigned int i = 0; i < ncorner; ++i) {
-      const HepGeom::Point3D<float> lcoord(xy.first+signx[i]*dx,
-					   xy.second+signy[i]*dx,signz[i]*dz);
-      co[i] = ((m_det == DetId::HGCalHSc) ? 
-	       (m_cellVec2[cellIndex].getPosition(lcoord)) :
-	       (m_cellVec[cellIndex].getPosition(lcoord)));
+    if (m_det == DetId::HGCalHSc) {
+      std::pair<double,double> rr = m_topology.dddConstants().cellSizeTrap(id_.iType,id_.iSec1);
+      float dx = 0.5*(rr.second-rr.first);
+      float dy = 0.5*(rr.second+rr.first)*m_cellVec2[cellIndex].param()[11];
+      float dz = m_cellVec2[cellIndex].param()[0];
+      for (unsigned int i = 0; i < ncorner; ++i) {
+	const HepGeom::Point3D<float> lcoord(signx[i]*dx,signy[i]*dy,signz[i]*dz);
+	co[i] = m_cellVec2[cellIndex].getPosition(lcoord);
+      }
+    } else {
+      float dx = m_cellVec[cellIndex].param()[1];
+      float dz = m_cellVec[cellIndex].param()[0];
+      for (unsigned int i = 0; i < ncorner; ++i) {
+	const HepGeom::Point3D<float> lcoord(xy.first+signx[i]*dx,
+					     xy.second+signy[i]*dx,signz[i]*dz);
+	co[i] = m_cellVec[cellIndex].getPosition(lcoord);
+      }
     }
   }
   return co;
