@@ -1,3 +1,5 @@
+#include "DataFormats/ForwardDetId/interface/ForwardSubdetector.h"
+#include "DataFormats/ForwardDetId/interface/HFNoseDetId.h"
 #include "DataFormats/ForwardDetId/interface/HGCalDetId.h"
 #include "SimDataFormats/CaloTest/interface/HGCalTestNumbering.h"
 #include "SimCalorimetry/HGCalSimProducers/interface/HGCDigitizer.h"
@@ -285,9 +287,9 @@ void HGCDigitizer::finalizeEvent(edm::Event& e, edm::EventSetup const& es, CLHEP
     if( producesEEDigis() ) {
       auto digiResult = std::make_unique<HGCalDigiCollection>();
       theHGCEEDigitizer_->run(digiResult,*simHitAccumulator_,theGeom,validIds_,digitizationType_, hre);
-      edm::LogInfo("HGCDigitizer") << " @ finalize event - produced " 
-				   << digiResult->size() <<  " EE hits";
 #ifdef EDM_ML_DEBUG
+      edm::LogVerbatim("HGCDigitizer") 
+	<< "HGCDigitizer:: finalize event - produced " << digiResult->size() <<  " EE hits";
       checkPosition(&(*digiResult));
 #endif
       e.put(std::move(digiResult),digiCollection());
@@ -295,9 +297,9 @@ void HGCDigitizer::finalizeEvent(edm::Event& e, edm::EventSetup const& es, CLHEP
     if( producesHEfrontDigis()) {
       auto digiResult = std::make_unique<HGCalDigiCollection>();
       theHGCHEfrontDigitizer_->run(digiResult,*simHitAccumulator_,theGeom,validIds_,digitizationType_, hre);
-      edm::LogInfo("HGCDigitizer") << " @ finalize event - produced " 
-				   << digiResult->size() <<  " HE front hits";
 #ifdef EDM_ML_DEBUG
+      edm::LogVerbatim("HGCDigitizer") 
+	<< "HGCDigitizer:: finalize event - produced " << digiResult->size() <<  " HE silicon hits";
       checkPosition(&(*digiResult));
 #endif
       e.put(std::move(digiResult),digiCollection());
@@ -305,9 +307,9 @@ void HGCDigitizer::finalizeEvent(edm::Event& e, edm::EventSetup const& es, CLHEP
     if( producesHEbackDigis() ) {
       auto digiResult = std::make_unique<HGCalDigiCollection>();
       theHGCHEbackDigitizer_->run(digiResult,*simHitAccumulator_,theGeom,validIds_,digitizationType_, hre);
-      edm::LogInfo("HGCDigitizer") << " @ finalize event - produced " 
-				   << digiResult->size() <<  " HE back hits";
 #ifdef EDM_ML_DEBUG
+      edm::LogVerbatim("HGCDigitizer") 
+	<< "HGCDigitizer:: finalize event - produced " << digiResult->size() <<  " HE Scintillator hits";
       checkPosition(&(*digiResult));
 #endif
       e.put(std::move(digiResult),digiCollection());
@@ -316,9 +318,9 @@ void HGCDigitizer::finalizeEvent(edm::Event& e, edm::EventSetup const& es, CLHEP
       auto digiResult = std::make_unique<HGCalDigiCollection>();
       theHFNoseDigitizer_->run(digiResult,*simHitAccumulator_,theGeom,
 			       validIds_,digitizationType_, hre);
-      edm::LogInfo("HGCDigitizer") << " @ finalize event - produced " 
-				   << digiResult->size() <<  " HFNose hits";
 #ifdef EDM_ML_DEBUG
+      edm::LogVerbatim("HGCDigitizer") 
+	<< "HGCDigitizer:: finalize event - produced " << digiResult->size() <<  " HFNose hits";
       checkPosition(&(*digiResult));
 #endif
       e.put(std::move(digiResult),digiCollection());
@@ -686,15 +688,16 @@ void HGCDigitizer::checkPosition(const HGCalDigiCollection* digis) const {
       std::string ck = (((r < rrange.first-tol) || (r > rrange.second+tol) ||
 			 (z < zrange.first-tol) || (z > zrange.second+tol)) ?
 			"***** ERROR *****" : "");
-      if (!ok) {
-	if (id.det() == DetId::HGCalHSi) {
+      bool        val= gHGCal_->topology().valid(id);
+      if ((!ok) || (!val)) {
+	if (id.det() == DetId::HGCalEE || id.det() == DetId::HGCalHSi) {
 	  edm::LogVerbatim("HGCDigitizer") << "Check " << HGCSiliconDetId(id)
 					   << " " << global << " R " << r 
 					   << ":" << rrange.first << ":" 
 					   << rrange.second << " Z " << z 
 					   << ":" << zrange.first << ":"
 					   << zrange.second << " Flag "
-					   << ok << " " << ck;
+					   << ok << ":" << val << " " << ck;
 	} else if (id.det() == DetId::HGCalHSc) {
 	  edm::LogVerbatim("HGCDigitizer") << "Check " << HGCScintillatorDetId(id)
 					   << " " << global << " R " << r 
@@ -702,15 +705,27 @@ void HGCDigitizer::checkPosition(const HGCalDigiCollection* digis) const {
 					   << rrange.second << " Z " << z 
 					   << ":" << zrange.first << ":" 
 					   << zrange.second << " Flag "
-					   << ok << " " << ck;
-	} else {
+					   << ok << ":" << val << " " << ck;
+	} else if ((id.det() == DetId::Forward) && 
+		   (id.subdetId() == static_cast<int>(HFNose))) {
 	  edm::LogVerbatim("HGCDigitizer") << "Check " << HFNoseDetId(id)
 					   << " " << global << " R " << r 
 					   << ":"  << rrange.first << ":" 
 					   << rrange.second << " Z " << z 
 					   << ":" << zrange.first << ":" 
 					   << zrange.second << " Flag "
-					   << ok << " " << ck;
+					   << ok << ":" << val << " " << ck;
+	} else {
+	  edm::LogVerbatim("HGCDigitizer") << "Check " << std::hex 
+					   << id.rawId() << std::dec
+					   << " " << id.det() << ":"
+					   << id.subdetId()
+					   << " " << global << " R " << r 
+					   << ":"  << rrange.first << ":" 
+					   << rrange.second << " Z " << z 
+					   << ":" << zrange.first << ":" 
+					   << zrange.second << " Flag "
+					   << ok << ":" << val << " " << ck;
 	}
       }
     }
