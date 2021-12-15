@@ -32,7 +32,7 @@
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Utilities/interface/EDGetToken.h"
@@ -80,7 +80,7 @@
 // class declaration
 //
 
-class StripClusterMCanalysis : public edm::EDAnalyzer {
+class StripClusterMCanalysis : public edm::one::EDAnalyzer<> {
 public:
   explicit StripClusterMCanalysis(const edm::ParameterSet&);
 
@@ -114,6 +114,8 @@ private:
   edm::EDGetTokenT<edm::DetSetVector<StripDigiSimLink> > stripSimlinkToken_;
   std::vector<edm::EDGetTokenT<CrossingFrame<PSimHit> > > cfTokens_;
   std::vector<edm::EDGetTokenT<std::vector<PSimHit> > > simHitTokens_;
+  edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> topoToken_;
+  edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
 
   edm::Handle<edm::DetSetVector<StripDigiSimLink> > stripdigisimlink;
 
@@ -211,6 +213,8 @@ StripClusterMCanalysis::StripClusterMCanalysis(const edm::ParameterSet& iConfig)
     cfTokens_.push_back(consumes<CrossingFrame<PSimHit> >(edm::InputTag("mix", trackerContainer)));
     simHitTokens_.push_back(consumes<std::vector<PSimHit> >(edm::InputTag("g4SimHits", trackerContainer)));
   }
+  topoToken_ = esConsumes<TrackerTopology, TrackerTopologyRcd>();
+  geomToken_ = esConsumes<TrackerGeometry, TrackerDigiGeometryRecord>();
 }
 
 StripClusterMCanalysis::~StripClusterMCanalysis() {
@@ -233,9 +237,7 @@ void StripClusterMCanalysis::analyze(const edm::Event& iEvent, const edm::EventS
   evCnt_++;
 
   // Retrieve tracker topology from geometry
-  edm::ESHandle<TrackerTopology> tTopoHandle;
-  iSetup.get<TrackerTopologyRcd>().get(tTopoHandle);  // PR#7802
-  const TrackerTopology* const tTopo = tTopoHandle.product();
+  const TrackerTopology* const tTopo = &iSetup.getData(topoToken_);
 
   // Get the beam spot
   edm::Handle<reco::BeamSpot> recoBeamSpotHandle;
@@ -300,8 +302,7 @@ void StripClusterMCanalysis::analyze(const edm::Event& iEvent, const edm::EventS
 
   iEvent.getByToken(stripSimlinkToken_, stripdigisimlink);
 
-  edm::ESHandle<TrackerGeometry> tkgeom;
-  iSetup.get<TrackerDigiGeometryRecord>().get(tkgeom);
+  const auto& tkgeom = iSetup.getHandle(geomToken_);
   if (!tkgeom.isValid()) {
     std::cout << "Unable to find TrackerDigiGeometryRecord in event!";
     return;
