@@ -5,6 +5,7 @@
 
 #include "DataFormats/Common/interface/Handle.h"
 #include "DataFormats/ForwardDetId/interface/ForwardSubdetector.h"
+#include "DataFormats/ForwardDetId/interface/HFNoseDetId.h"
 #include "DataFormats/ForwardDetId/interface/HGCSiliconDetId.h"
 #include "DataFormats/ForwardDetId/interface/HGCScintillatorDetId.h"
 
@@ -136,20 +137,26 @@ void HGCGeometryCheck::analyze(const edm::Event &iEvent, const edm::EventSetup &
       double yy = mmTocm_ * hitVtxY[i];
       double zz = mmTocm_ * hitVtxZ[i];
       double rr = sqrt(xx * xx + yy * yy);
-      if ((hitDet[i] == static_cast<unsigned int>(DetId::Forward)) ||
+      DetId hid(hitIdx[i]);
+      if (((hitDet[i] == static_cast<unsigned int>(DetId::Forward)) &&
+	   (hid.subdetId() == static_cast<int>(ForwardSubdetector::HFNose))) ||
           (hitDet[i] == static_cast<unsigned int>(DetId::HGCalEE)) ||
           (hitDet[i] == static_cast<unsigned int>(DetId::HGCalHSi)) ||
           (hitDet[i] == static_cast<unsigned int>(DetId::HGCalHSc))) {
         int dtype(0), layer(0), zside(1);
         if ((hitDet[i] == static_cast<unsigned int>(DetId::HGCalEE)) ||
             (hitDet[i] == static_cast<unsigned int>(DetId::HGCalHSi))) {
-          HGCSiliconDetId id(hitIdx[i]);
+          HGCSiliconDetId id(hid);
           dtype = (id.det() == DetId::HGCalEE) ? 0 : 1;
           layer = id.layer();
           zside = id.zside();
-        } else {
-          HGCScintillatorDetId id(hitIdx[i]);
+        } else if (hitDet[i] == static_cast<unsigned int>(DetId::HGCalHSc)) {
+          HGCScintillatorDetId id(hid);
           dtype = 2;
+          layer = id.layer();
+          zside = id.zside();
+        } else {
+          HFNoseDetId id(hid);
           layer = id.layer();
           zside = id.zside();
         }
