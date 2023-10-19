@@ -80,6 +80,7 @@ protected:
   G4ThreeVector setToLocal(const G4ThreeVector&, const G4VTouchable*) const;
   G4ThreeVector setToGlobal(const G4ThreeVector&, const G4VTouchable*) const;
 
+  bool processClibHit(const G4Step* step) {}
   bool hitExists(const G4Step*, int k);
   bool checkHit(int k = 0);
   CaloG4Hit* createNewHit(const G4Step*, const G4Track*, int k);
